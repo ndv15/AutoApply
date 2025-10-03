@@ -1,0 +1,50 @@
+# Environment variables - NEVER COMMIT API KEYS!
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Output files (may contain sensitive data)
+out/
+*.docx
+*.pdf
+
+# Logs
+*.log
+*.jsonl
+
+# OS
+.DS_Store
+Thumbs.db
+# Ignore Windows reserved file\nnul\n
