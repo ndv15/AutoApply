@@ -48,3 +48,5 @@ out/
 .DS_Store
 Thumbs.db
 # Ignore Windows reserved file\nnul\n
+\n# Local virtualenv\n.venv/
+nul
