@@ -1,0 +1,41 @@
+[
+  {
+    "role_id": "ccs-2025",
+    "company": "Complete Communication Services",
+    "title": "Sales Manager",
+    "start": "2025-03",
+    "end": "Present",
+    "location": "Austin, TX",
+    "remote": true
+  },
+  {
+    "role_id": "brightspeed-2022-ii",
+    "company": "Brightspeed",
+    "title": "Enterprise Account Manager II",
+    "start": "2022-09",
+    "end": "2024-05",
+    "location": "Austin, TX",
+    "remote": true,
+    "awards": ["President's Club (2023)", "#2 Overall (Enterprise)"]
+  },
+  {
+    "role_id": "brightspeed-2021",
+    "company": "Brightspeed",
+    "title": "Enterprise Account Manager",
+    "start": "2021-06",
+    "end": "2022-09",
+    "location": "Austin, TX",
+    "remote": true,
+    "awards": ["Above and Beyond (Team Player) - Q4 2020"]
+  },
+  {
+    "role_id": "virsatel-2018",
+    "company": "VirsaTel",
+    "title": "Account Executive",
+    "start": "2018-01",
+    "end": "2021-06",
+    "location": "Austin, TX",
+    "remote": true,
+    "awards": ["President's Club (2020)", "#1 Overall (Mid-Market & Enterprise)"]
+  }
+]

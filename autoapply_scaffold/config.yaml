@@ -1,0 +1,168 @@
+# AutoApply Configuration
+
+# Writing & Suggestion Engine
+writing:
+  max_skill_categories: 4
+  suggestion:
+    use_embeddings: false
+    weights:
+      keywords: 0.6
+      embeddings: 0.4
+
+# Required bullet counts per role
+roles_required:
+  ccs-2025: 4
+  brightspeed-2022-ii: 4
+  brightspeed-2021: 4
+  virsatel-2018: 3
+
+# Experience quotas (same as roles_required, used by sequential system)
+experience_quotas:
+  ccs-2025: 4
+  brightspeed-2022-ii: 4
+  brightspeed-2021: 4
+  virsatel-2018: 3
+
+# LLM routing for multi-agent pipeline
+llm:
+  fast_model: "gpt-3.5-turbo"
+  premium_model: "claude-3-5-sonnet-20241022"
+  openai_api_key: ""  # Set via environment variable OPENAI_API_KEY
+  anthropic_api_key: ""  # Set via environment variable ANTHROPIC_API_KEY
+
+  providers:
+    anthropic:
+      model: "claude-3-5-sonnet-20241022"
+      timeout: 30
+      role: "primary"
+    openai:
+      model: "gpt-4o"
+      timeout: 30
+      role: "counter"
+    gemini:
+      model: "gemini-1.5-flash"
+      timeout: 30
+      role: "tiebreaker"
+    perplexity:
+      model: "llama-3.1-sonar-large-128k-online"
+      timeout: 25
+      role: "research"
+    cohere:
+      model: "rerank-english-v3.0"
+      timeout: 20
+      role: "ranking"
+
+# Quality thresholds
+thresholds:
+  min_human_score: 6
+  min_ats_score: 7
+  min_bullet_score: 5
+
+# Discovery settings
+discovery:
+  enable_greenhouse: true
+  enable_lever: true
+  enable_workday: true
+  timeout_seconds: 10
+
+# Apply automation
+apply:
+  allow_auto_submit: false
+  require_approval: true
+  min_interval_seconds: 300  # Minimum 5 minutes (300 seconds) between submissions
+  # Rate limiting: Prevents API throttling and maintains professional submission pace
+  # With 1 Perplexity call per job, this keeps you well under Standard tier limits
+
+# Security
+security:
+  allowed_domains:
+    - "*.gov"
+    - "shrm.org"
+    - "bls.gov"
+    - "linkedin.com"
+    - "indeed.com"
+    - "glassdoor.com"
+  block_credential_files: true
+
+# Notifications
+notifications:
+  enable_toast: true
+  enable_email: false
+
+# UI preferences
+ui:
+  theme: "light"
+  show_debug: false
+  auto_redirect_delay: 2000
+
+# Telemetry
+telemetry:
+  enabled: true
+  log_file: "out/telemetry.jsonl"
+  events:
+    - "job_ingested"
+    - "review_started"
+    - "suggestion_proposed"
+    - "suggestion_approved"
+    - "suggestion_rejected"
+    - "role_complete"
+    - "files_generated"
+    - "application_submitted"
+
+# Research
+research:
+  enable_web_search: false
+  max_sources: 3
+  allowed_sources:
+    - "*.gov"
+    - "shrm.org"
+    - "bls.gov"
+
+  perplexity:
+    enabled: true
+    cache_ttl: 3600
+    cache_dir: "out/cache/perplexity"
+    allow_list:
+      - "gov"
+      - "shrm.org"
+      - "bls.gov"
+      - "dol.gov"
+      - "eeoc.gov"
+      - "linkedin.com/pulse"
+      - "hbr.org"
+      - "forbes.com"
+      - "inc.com"
+    max_citations: 3
+
+# Ranking and Scoring
+ranking:
+  cohere:
+    enabled: true
+    model: "rerank-english-v3.0"
+    top_n: 10
+    weights:
+      semantic: 0.5
+      keyword: 0.2
+      readability: 0.2
+      evidence: 0.1
+
+# Multi-LLM Routing
+routing:
+  suggestions_per_request: 3
+  flow_order:
+    - perplexity  # Research context
+    - claude      # Primary generation
+    - gpt         # Counter perspective
+    - claude      # Judge
+    - gemini      # Tiebreaker if needed
+    - cohere      # Final ranking
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 3
+    timeout_seconds: 60
+  retry:
+    max_attempts: 2
+    backoff_multiplier: 1.5
+  thresholds:
+    min_score_for_gemini: 7
+    min_confidence_for_auto_approve: 9

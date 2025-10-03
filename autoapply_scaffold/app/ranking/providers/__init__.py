@@ -1,0 +1,1 @@
+# Ranking Provider Adapters

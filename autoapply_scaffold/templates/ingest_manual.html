@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Manual Job Entry{% endblock %}
+{% block breadcrumb %} &raquo; Manual Entry{% endblock %}
+{% block content %}
+<div class="card">
+<h2>Manual Job Entry</h2>
+<div class="alert alert-info">
+We couldn't automatically parse this job posting ({{ job.host }}). Please enter the job details manually.
+</div>
+<p class="text-muted">Original URL: <a href="{{ job.url }}" target="_blank">{{ job.url }}</a></p>
+<form method="POST" action="/ingest/manual/{{ job.id }}" style="margin-top:24px">
+<div style="margin-bottom:20px">
+<label style="display:block;font-weight:600;margin-bottom:8px">Job Title *</label>
+<input type="text" name="title" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px" placeholder="e.g., Enterprise Account Manager">
+</div>
+<div style="margin-bottom:20px">
+<label style="display:block;font-weight:600;margin-bottom:8px">Company *</label>
+<input type="text" name="company" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px" placeholder="e.g., Acme Corp">
+</div>
+<div style="margin-bottom:20px">
+<label style="display:block;font-weight:600;margin-bottom:8px">Job Description *</label>
+<textarea name="jd" required rows="12" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px;font-family:inherit;line-height:1.6" placeholder="Paste the full job description here..."></textarea>
+<div class="text-muted" style="margin-top:4px">Include all details: responsibilities, requirements, qualifications, etc.</div>
+</div>
+<div style="text-align:center;margin-top:32px">
+<button type="submit" class="btn btn-primary btn-lg">Continue to Review</button>
+<a href="/" class="btn btn-secondary" style="margin-left:12px">Cancel</a>
+</div>
+</form>
+</div>
+{% endblock %}

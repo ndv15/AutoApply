@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Review: {{ job.title }} @ {{ job.company }}{% endblock %}
+{% block breadcrumb %} &raquo; Review{% endblock %}
+{% block extra_styles %}
+<style>
+.job-header{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:24px;border-radius:8px;margin-bottom:20px}
+.job-header h1{font-size:28px;margin-bottom:8px}
+.bullet-item{border:1px solid #e0e0e0;padding:12px 16px;margin-bottom:12px;border-radius:6px;display:flex;justify-content:space-between;align-items:flex-start}
+.bullet-item.approved{background:#d4edda;border-color:#c3e6cb}
+.bullet-item.rejected{background:#f8d7da;border-color:#f5c6cb;opacity:0.6}
+.bullet-content{flex:1;padding-right:16px}
+.bullet-actions{display:flex;gap:8px;flex-shrink:0}
+.skill-item{border:1px solid #e0e0e0;padding:12px 16px;margin-bottom:10px;border-radius:6px;display:flex;justify-content:space-between;align-items:center}
+.scores-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.score-box{background:#f9f9f9;padding:16px;border-radius:6px;text-align:center}
+.score-value{font-size:32px;font-weight:bold;color:#007bff}
+.toast-container{position:fixed;top:20px;right:20px;z-index:9999;max-width:350px}
+.toast{background:white;border-left:4px solid #28a745;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:16px;margin-bottom:12px;border-radius:6px;animation:slideIn 0.3s ease-out}
+.toast.error{border-left-color:#dc3545}
+.toast.warning{border-left-color:#ffc107}
+@keyframes slideIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+.tooltip-icon{display:inline-block;width:18px;height:18px;background:#007bff;color:white;border-radius:50%;text-align:center;line-height:18px;font-size:12px;cursor:help;margin-left:6px}
+</style>
+{% endblock %}
+{% block content %}
+<div class="toast-container" id="toastContainer"></div>
+<div class="job-header">
+<h1>{{ job.title }}</h1>
+<div style="font-size:20px;opacity:0.9">@ {{ job.company }}</div>
+<div style="font-size:14px;color:rgba(255,255,255,0.8);margin-top:8px">{{ job.apply_url }}</div>
+</div>
+<div class="card"><h2>Job Description (Snippet)</h2>
+<div style="background:#f9f9f9;padding:16px;border-left:4px solid #007bff;border-radius:4px;line-height:1.7">{{ jd_snippet }}</div></div>
+<div class="card"><h2>Executive Summary</h2><p style="line-height:1.8">{{ exec_summary }}</p></div>
+<div class="card"><h2>Statement of Qualifications</h2>
+<ul style="padding-left:20px">{% for s in soq %}<li style="margin-bottom:12px">{{ s }}</li>{% endfor %}</ul></div>
+<div class="card"><h2>Experience Bullets</h2>
+<p class="text-muted"><span class="badge badge-synth">SYNTH</span> = synthetic metric requiring approval</p>
+{% for role_id, bullets in experience.items() %}
+{% if job.history %}{% for role in job.history %}{% if role.role_id == role_id %}
+<h3 style="margin-top:20px;color:#555;font-size:18px">{{ role.title }} @ {{ role.company }}</h3>
+{% endif %}{% endfor %}{% else %}<h3 style="margin-top:20px;color:#555">{{ role_id }}</h3>{% endif %}
+{% for b in bullets %}
+<div class="bullet-item {% if b.status=='APPROVED' %}approved{% elif b.status=='REJECTED' %}rejected{% endif %}" id="bullet-{{ b.id }}">
+<div class="bullet-content">{{ b.text }}<div style="margin-top:8px">
+<span class="badge badge-{{ b.status.lower() }}">{{ b.status }}</span>
+{% if b.synth_metric %}<span class="badge badge-synth">SYNTH</span><span class="text-muted">{{ (b.confidence*100)|int }}%</span>{% endif %}</div>
+{% if b.synth_metric and b.status=='PENDING' %}<div class="alert alert-warning" style="margin-top:8px;margin-bottom:0">⚠️ Synthetic metric - approve to include</div>{% endif %}</div>
+<div class="bullet-actions">
+<button class="btn btn-success btn-sm" onclick="approveBullet('{{ job.id }}','{{ role_id }}','{{ b.id }}')">Approve</button>
+<button class="btn btn-danger btn-sm" onclick="rejectBullet('{{ job.id }}','{{ role_id }}','{{ b.id }}')">Reject</button>
+</div></div>{% endfor %}{% endfor %}</div>
+<div class="card"><h2>Skills</h2>
+<h3 style="margin-top:16px;font-size:16px;color:#555">Approved (from profile)</h3>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px">
+{% for sk in skills.approved %}<span class="badge badge-approved" style="padding:6px 12px">{{ sk }}</span>{% endfor %}</div>
+{% if skills.needs_confirmation %}<h3 style="margin-top:16px;font-size:16px;color:#555">Needs Confirmation</h3>
+<p class="text-muted">Review suggested skills:</p>
+{% for sd in skills.needs_confirmation %}{% set sn=sd.skill if sd is mapping else sd %}{% set sr=sd.reason if sd is mapping else '' %}
+<div class="skill-item" id="skill-{{ loop.index0 }}"><div><div style="font-weight:600">{{ sn }}</div>
+{% if sr %}<div style="font-size:13px;color:#666;margin-top:4px">{{ sr }}</div>{% endif %}</div>
+<div class="bullet-actions">
+<button class="btn btn-success btn-sm" onclick="approveSkill('{{ job.id }}','{{ sn }}',{{ loop.index0 }})">Approve</button>
+<button class="btn btn-danger btn-sm" onclick="rejectSkill('{{ job.id }}','{{ sn }}',{{ loop.index0 }})">Reject</button>
+</div></div>{% endfor %}{% else %}<p class="text-muted">No additional skills suggested.</p>{% endif %}</div>
+<div class="card"><h2>Quality Scores</h2><div class="scores-grid">
+<div class="score-box"><div class="score-value">{{ scores.recruiter }}</div><div style="font-size:14px;color:#666;margin-top:8px">Recruiter Readability (0-100)</div></div>
+<div class="score-box"><div class="score-value">{{ '✓ PASS' if scores.ats_preflight.pass else '✗ FAIL' }}</div>
+<div style="font-size:14px;color:#666;margin-top:8px">ATS: {{ scores.ats_preflight.keyword_hits }}/{{ scores.ats_preflight.keyword_needed|length }} keywords</div></div></div></div>
+<div class="card text-center">
+<button class="btn btn-primary btn-lg" onclick="approveAll('{{ job.id }}')">Approve All & Continue to Apply</button>
+<button class="btn btn-secondary" onclick="location.reload()" style="margin-left:12px">Refresh</button></div>
+{% endblock %}
+{% block scripts %}
+<script>
+function showToast(msg,type='success'){const c=document.getElementById('toastContainer');const t=document.createElement('div');t.className='toast '+(type||'');t.innerHTML=`<strong>${type==='error'?'Error':type==='warning'?'Warning':'Success'}</strong><div style="margin-top:4px;font-size:14px">${msg}</div>`;c.appendChild(t);setTimeout(()=>t.remove(),3000)}
+async function approveBullet(j,r,b){const el=document.getElementById('bullet-'+b);el.style.opacity='0.5';try{const res=await fetch('/review/bullet/'+j,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role_id:r,bullet_id:b,action:'approve'})});if(res.ok){el.className='bullet-item approved';el.querySelector('.badge').className='badge badge-approved';el.querySelector('.badge').textContent='APPROVED';showToast('Bullet approved ✓')}}catch(e){showToast(e,'error')}finally{el.style.opacity='1'}}
+async function rejectBullet(j,r,b){const el=document.getElementById('bullet-'+b);el.style.opacity='0.5';try{const res=await fetch('/review/bullet/'+j,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role_id:r,bullet_id:b,action:'reject'})});if(res.ok){el.className='bullet-item rejected';el.querySelector('.badge').className='badge badge-rejected';el.querySelector('.badge').textContent='REJECTED';showToast('Bullet rejected','warning')}}catch(e){showToast(e,'error')}finally{el.style.opacity='1'}}
+async function approveSkill(j,s,i){const el=document.getElementById('skill-'+i);el.style.opacity='0.5';try{const res=await fetch('/review/skill/'+j,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({skill:s,action:'approve'})});if(res.ok){el.remove();showToast(`Skill "${s}" approved ✓`)}}catch(e){showToast(e,'error');el.style.opacity='1'}}
+async function rejectSkill(j,s,i){const el=document.getElementById('skill-'+i);el.style.opacity='0.5';try{const res=await fetch('/review/skill/'+j,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({skill:s,action:'reject'})});if(res.ok){el.remove();showToast(`Skill "${s}" rejected`,'warning')}}catch(e){showToast(e,'error');el.style.opacity='1'}}
+async function approveAll(j){if(!confirm('Approve all pending items and continue to Apply page?'))return;showToast('Approving all items...','warning');try{const res=await fetch('/review/approve_all/'+j,{method:'POST'});if(res.ok){showToast('All approved! Redirecting...');setTimeout(()=>location.href='/apply/'+j,1000)}else showToast('Error approving all','error')}catch(e){showToast(e,'error')}}
+</script>
+{% endblock %}

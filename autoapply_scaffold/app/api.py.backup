@@ -1,0 +1,342 @@
+from fastapi import FastAPI, Body, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from typing import List, Dict
+from pathlib import Path
+import json, uuid, os
+from app.config import load_settings
+from app.discovery.resolver import resolve_company_apply
+from app.discovery import dedupe
+from app.research.providers import gather_allowlisted_evidence
+from app.research.debate import debate_and_merge
+from app.writing.summarize import generate_exec_and_soq
+from app.writing.recruiter_score import score_human_readability
+from app.writing.ats_preflight import preflight_check
+from app.writing.experience import propose_experience_bullets
+from app.writing.skills_engine import propose_skills
+from app.assemble.locks import enforce_locks
+from app.assemble.resume import render_resume
+from app.assemble.cover_letter import render_cover
+from app.apply.assist import open_assist
+from app.apply.submitters import auto_submit
+from app.apply.compliance import allowed_for_auto
+
+app = FastAPI(title="AutoApply (Hybrid)")
+settings = load_settings()
+JOBS: Dict[str, Dict] = {}
+templates = Jinja2Templates(directory="templates")
+
+@app.get("/", response_class=HTMLResponse)
+def root():
+    return Path("web/index.html").read_text()
+
+@app.post("/ingest/paste")
+def ingest_paste(payload: Dict = Body(...)):
+    url = payload.get('url', '')
+    r = resolve_company_apply(url)
+    jd = "Sample job description text with analytics Amplitude SQL leadership outcomes roadmap experiments optimization product manager data analysis A/B testing user research stakeholder management agile scrum"
+    company = "ExampleCo"
+    title = "Senior Product Manager"
+    res = {"id": str(uuid.uuid4())[:8], "url": url, "company": company, "title": title, "jd": jd}
+    res.update(r)
+    from app.utils.text import hash_key
+    key = hash_key(company.lower(), title.lower(), res.get('apply_url', ''))
+    if dedupe.seen(key):
+        return {"status": "duplicate_skipped"}
+    dedupe.mark(key)
+    JOBS[res["id"]] = res
+    return {"status": "queued", "job": res}
+
+@app.get("/queue/pending")
+def queue_pending() -> List[Dict]:
+    return list(JOBS.values())
+
+@app.post("/queue/skip")
+def queue_skip(payload: Dict = Body(...)):
+    jid = payload.get('job_id')
+    if jid in JOBS:
+        del JOBS[jid]
+    return {"ok": True}
+
+# ===== JSON API (preserved for programmatic access) =====
+@app.get("/review/session")
+def review_session(job_id: str = Query(...)):
+    """Original JSON endpoint - preserved for API access."""
+    job = JOBS.get(job_id)
+    if not job:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    # Get or initialize review data
+    if "review" not in job:
+        refs = debate_and_merge(gather_allowlisted_evidence([job["title"], job["company"]]))
+        exec_summary, soq = generate_exec_and_soq(job["jd"], job["company"])
+        history = json.loads(Path("profile/employment_history.json").read_text())
+        exp = propose_experience_bullets(history, job["jd"])
+        registry = json.loads(Path("profile/skills_registry.json").read_text())
+        auto_added, needs_confirm = propose_skills(job["jd"], registry)
+
+        # Calculate recruiter score (only approved bullets)
+        approved_bullets = [b['text'] for bl in exp.values() for b in bl if b.get('status') == 'APPROVED']
+        recruiter = score_human_readability(exec_summary, approved_bullets)
+        preflight = preflight_check(exec_summary + " " + " ".join(soq), job["jd"])
+
+        job["review"] = {
+            "evidence_refs": refs,
+            "exec_summary": exec_summary,
+            "soq": soq,
+            "experience": exp,
+            "skills": {
+                "approved": list(registry.get('approved', [])),
+                "needs_confirmation": needs_confirm,
+                "rejected": []
+            },
+            "scores": {"recruiter": recruiter, "ats_preflight": preflight}
+        }
+
+    return {"job": job, **job["review"]}
+
+# ===== HTML UI Routes =====
+@app.get("/review/{job_id}", response_class=HTMLResponse)
+def review_job_html(request: Request, job_id: str):
+    """HTML review page with approve/reject controls."""
+    job = JOBS.get(job_id)
+    if not job:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    # Initialize review session if not exists
+    if "review" not in job:
+        refs = debate_and_merge(gather_allowlisted_evidence([job["title"], job["company"]]))
+        exec_summary, soq = generate_exec_and_soq(job["jd"], job["company"])
+        history = json.loads(Path("profile/employment_history.json").read_text())
+        exp = propose_experience_bullets(history, job["jd"])
+        registry = json.loads(Path("profile/skills_registry.json").read_text())
+        auto_added, needs_confirm = propose_skills(job["jd"], registry)
+
+        # Calculate scores
+        approved_bullets = [b['text'] for bl in exp.values() for b in bl if b.get('status') == 'APPROVED']
+        recruiter = score_human_readability(exec_summary, approved_bullets)
+        preflight = preflight_check(exec_summary + " " + " ".join(soq), job["jd"])
+
+        job["review"] = {
+            "evidence_refs": refs,
+            "exec_summary": exec_summary,
+            "soq": soq,
+            "experience": exp,
+            "skills": {
+                "approved": list(registry.get('approved', [])),
+                "needs_confirmation": needs_confirm,
+                "rejected": []
+            },
+            "scores": {"recruiter": recruiter, "ats_preflight": preflight}
+        }
+        job["history"] = history  # Store for template rendering
+
+    # Truncate JD for display (first 120-180 words)
+    jd_words = job["jd"].split()
+    jd_snippet = " ".join(jd_words[:150]) + ("..." if len(jd_words) > 150 else "")
+
+    return templates.TemplateResponse("review.html", {
+        "request": request,
+        "job": job,
+        "jd_snippet": jd_snippet,
+        **job["review"]
+    })
+
+@app.post("/review/bullet/{job_id}")
+def update_bullet_status(job_id: str, payload: Dict = Body(...)):
+    """Update bullet status (APPROVED/REJECTED)."""
+    job = JOBS.get(job_id)
+    if not job or "review" not in job:
+        return JSONResponse({"error": "session_not_found"}, status_code=404)
+
+    role_id = payload.get('role_id')
+    bullet_id = payload.get('bullet_id')
+    action = payload.get('action')  # 'approve' or 'reject'
+
+    if role_id not in job["review"]["experience"]:
+        return JSONResponse({"error": "role_not_found"}, status_code=404)
+
+    # Find and update bullet
+    for bullet in job["review"]["experience"][role_id]:
+        if bullet['id'] == bullet_id:
+            bullet['status'] = 'APPROVED' if action == 'approve' else 'REJECTED'
+            return {"ok": True, "status": bullet['status']}
+
+    return JSONResponse({"error": "bullet_not_found"}, status_code=404)
+
+@app.post("/review/skill/{job_id}")
+def update_skill_status(job_id: str, payload: Dict = Body(...)):
+    """Move skill between needs_confirmation, approved, or rejected."""
+    job = JOBS.get(job_id)
+    if not job or "review" not in job:
+        return JSONResponse({"error": "session_not_found"}, status_code=404)
+
+    skill_data = payload.get('skill')  # Can be string or dict {skill, reason, match_type}
+    action = payload.get('action')  # 'approve' or 'reject'
+
+    # Extract skill name
+    if isinstance(skill_data, dict):
+        skill = skill_data.get('skill')
+    else:
+        skill = skill_data
+
+    skills = job["review"]["skills"]
+
+    # Remove from needs_confirmation
+    if isinstance(skills["needs_confirmation"], list):
+        # Handle list of dicts or list of strings
+        skills["needs_confirmation"] = [
+            s for s in skills["needs_confirmation"]
+            if (s.get('skill') if isinstance(s, dict) else s) != skill
+        ]
+
+    # Add to appropriate list
+    if action == 'approve':
+        if skill not in skills["approved"]:
+            skills["approved"].append(skill)
+    else:  # reject
+        if skill not in skills["rejected"]:
+            skills["rejected"].append(skill)
+
+    return {"ok": True}
+
+@app.post("/review/approve_all/{job_id}")
+def approve_all(job_id: str):
+    """Approve all PENDING bullets and skills."""
+    job = JOBS.get(job_id)
+    if not job or "review" not in job:
+        return JSONResponse({"error": "session_not_found"}, status_code=404)
+
+    # Approve all non-REJECTED bullets
+    for role_id, bullets in job["review"]["experience"].items():
+        for bullet in bullets:
+            if bullet.get('status') != 'REJECTED':
+                bullet['status'] = 'APPROVED'
+
+    # Approve all pending skills
+    skills = job["review"]["skills"]
+    for skill_data in skills["needs_confirmation"]:
+        skill = skill_data.get('skill') if isinstance(skill_data, dict) else skill_data
+        if skill not in skills["approved"]:
+            skills["approved"].append(skill)
+    skills["needs_confirmation"] = []
+
+    return {"ok": True}
+
+@app.get("/apply/{job_id}", response_class=HTMLResponse)
+def apply_page(request: Request, job_id: str):
+    """Apply page with file generation and submission options."""
+    job = JOBS.get(job_id)
+    if not job:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    # Check ATS eligibility
+    auto_eligible = allowed_for_auto(job.get("ats_vendor", ""))
+
+    # Check for generated files (use absolute paths)
+    resume_path = Path("out/resume.docx").resolve()
+    cover_path = Path("out/cover_letter.docx").resolve()
+    files_generated = None
+    if resume_path.exists() and cover_path.exists():
+        files_generated = {
+            "resume": str(resume_path),
+            "cover_letter": str(cover_path)
+        }
+
+    return templates.TemplateResponse("apply.html", {
+        "request": request,
+        "job": job,
+        "auto_eligible": auto_eligible,
+        "files_generated": files_generated
+    })
+
+@app.post("/build/files")
+def build_files(payload: Dict = Body(...)):
+    """Generate resume and cover letter files. Only uses APPROVED bullets."""
+    job_id = payload.get('job_id')
+    job = JOBS.get(job_id)
+    if not job:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    # Ensure review session exists
+    if "review" not in job:
+        return JSONResponse({"error": "review_not_started"}, status_code=400)
+
+    # Load identity
+    identity = json.loads(Path("profile/locked_identity.json").read_text())
+    identity = enforce_locks(identity, {})
+
+    # Get content from review session
+    exec_summary = job["review"]["exec_summary"]
+    soq = job["review"]["soq"]
+    experience = job["review"]["experience"]
+    skills = job["review"]["skills"]["approved"]
+
+    # Filter to APPROVED bullets only
+    approved_exp = {}
+    for role_id, bullets in experience.items():
+        approved_bullets = [b for b in bullets if b.get('status') == 'APPROVED']
+        if approved_bullets:
+            approved_exp[role_id] = approved_bullets
+
+    # Ensure output directory exists
+    out_dir = Path("out")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate files
+    out_resume = out_dir / "resume.docx"
+    out_cover = out_dir / "cover_letter.docx"
+
+    render_resume(out_resume, identity, exec_summary, soq, approved_exp, skills)
+    render_cover(out_cover, job["company"], job["title"], exec_summary)
+
+    # Return absolute paths
+    return {
+        "resume": str(out_resume.resolve()),
+        "cover_letter": str(out_cover.resolve())
+    }
+
+@app.post("/apply/assist")
+def apply_assist(payload: Dict = Body(...)):
+    return open_assist(payload.get('apply_url'))
+
+@app.post("/apply/auto")
+def apply_auto(payload: Dict = Body(...)):
+    """Auto-submit application (stub for allow-listed ATS)."""
+    job_id = payload.get('job_id')
+    job = JOBS.get(job_id)
+    if not job:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    apply_url = job.get('apply_url', '')
+    vendor = job.get('ats_vendor', '')
+
+    if not allowed_for_auto(vendor):
+        return {"ok": False, "reason": "Not in allow-list; use Assist."}
+
+    # Stub implementation - would integrate with actual ATS automation
+    result = auto_submit(vendor, apply_url)
+    # Mock successful submission
+    return {"ok": True, "message": f"Application submitted via {vendor}", "receipt": result}
+
+# ===== Debug/Utility Routes =====
+@app.get("/review/json/{job_id}")
+def review_json_debug(job_id: str):
+    """Debug endpoint: dump current review state as JSON."""
+    job = JOBS.get(job_id)
+    if not job:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    return {"job_id": job_id, "job": job}
+
+@app.post("/review/reset/{job_id}")
+def reset_review(job_id: str):
+    """Reset review session to initial PENDING state."""
+    job = JOBS.get(job_id)
+    if not job:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+
+    # Clear review data to force regeneration
+    if "review" in job:
+        del job["review"]
+
+    return {"ok": True, "message": "Review session reset"}

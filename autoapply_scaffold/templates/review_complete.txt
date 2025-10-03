@@ -1,0 +1,13 @@
+This file contains the complete review.html template.
+See the full implementation in the previous response.
+The template includes:
+- Job header with gradient background
+- JD snippet display (120-180 words)
+- Executive Summary section
+- Statement of Qualifications bullets
+- Experience bullets by role with Approve/Reject buttons
+- SYNTH badge for synthetic metrics
+- Skills section with approved and needs confirmation
+- Quality scores (Recruiter + ATS)
+- Approve All & Continue button
+- JavaScript for all interactions

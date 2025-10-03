@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+{% block title %}Review: {{ job.title }} @ {{ job.company }} - Sequential{% endblock %}
+{% block breadcrumb %} &raquo; Review (Sequential){% endblock %}
+{% block extra_styles %}
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;padding:0}
+.container-fluid{display:flex;height:100vh;overflow:hidden}
+.left-panel{flex:0 0 55%;padding:20px;overflow-y:auto;background:#fff;border-right:2px solid #e0e0e0}
+.right-panel{flex:1;padding:20px;overflow-y:auto;background:#fafafa}
+.job-header{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:8px;margin-bottom:20px}
+.job-header h1{font-size:24px;margin:0 0 8px 0}
+.role-panel{border:1px solid #e0e0e0;padding:20px;margin-bottom:20px;border-radius:8px;background:white;box-shadow:0 2px 4px rgba(0,0,0,0.05)}
+.role-panel.complete{background:#d4edda;border-color:#c3e6cb}
+.role-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.role-title{font-size:16px;font-weight:600;color:#333}
+.progress-bar{background:#e0e0e0;height:24px;border-radius:12px;overflow:hidden;margin:12px 0}
+.progress-fill{background:linear-gradient(90deg,#28a745,#20c997);height:100%;transition:width 0.3s;display:flex;align-items:center;justify-content:center;color:white;font-weight:600;font-size:13px}
+.suggestion-card{border:2px solid #007bff;padding:16px;border-radius:8px;background:#f8f9fa;margin:12px 0}
+.suggestion-text{font-size:15px;line-height:1.6;margin-bottom:12px;padding:12px;background:white;border-radius:6px;min-height:60px}
+.suggestion-meta{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.score-badge{padding:4px 12px;border-radius:16px;font-weight:600;font-size:13px}
+.score-high{background:#28a745;color:white}
+.score-med{background:#ffc107;color:#000}
+.score-low{background:#dc3545;color:white}
+.model-badge{padding:4px 10px;border-radius:12px;background:#6c757d;color:white;font-size:11px;text-transform:uppercase}
+.citations-dropdown{margin-top:8px;font-size:12px}
+.citations-dropdown summary{cursor:pointer;color:#007bff;font-weight:600}
+.citations-list{margin-top:8px;padding-left:16px;color:#666;font-size:12px}
+.btn-grid{display:flex;gap:10px;margin-top:12px}
+.btn-action{flex:1;min-height:40px;font-size:14px;font-weight:600;border:none;border-radius:6px;cursor:pointer;transition:all 0.2s}
+.btn-accept{background:#28a745;color:white}
+.btn-accept:hover{background:#218838}
+.btn-reject{background:#dc3545;color:white}
+.btn-reject:hover{background:#c82333}
+.btn-another{background:#6c757d;color:white}
+.btn-another:hover{background:#5a6268}
+.btn-continue{background:#007bff;color:white;font-size:18px;padding:16px 32px;border:none;border-radius:8px;cursor:pointer;margin:20px 0}
+.btn-continue:disabled{background:#ccc;cursor:not-allowed}
+.resume-preview{background:white;padding:30px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);font-family:'Calibri',sans-serif;font-size:11pt;line-height:1.4}
+.resume-name{text-align:center;font-size:18pt;font-weight:bold;margin-bottom:6px}
+.resume-contact{text-align:center;font-size:11pt;margin-bottom:20px;color:#555}
+.resume-section{margin-bottom:20px}
+.resume-section-title{font-size:14pt;font-weight:bold;border-bottom:2px solid #000;padding-bottom:4px;margin-bottom:12px}
+.resume-role-header{font-weight:bold;margin-bottom:8px}
+.resume-bullet{margin-left:20px;margin-bottom:6px;position:relative}
+.resume-bullet:before{content:"•";position:absolute;left:-15px}
+.loading-overlay{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.8);display:none;align-items:center;justify-content:center;border-radius:8px;z-index:10}
+.loading-overlay.active{display:flex}
+.spinner{border:3px solid #f3f3f3;border-top:3px solid #007bff;border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+.toast-container{position:fixed;top:20px;right:20px;z-index:9999;max-width:350px}
+.toast{background:white;border-left:4px solid #28a745;box-shadow:0 4px 12px rgba(0,0,0,0.15);padding:16px;margin-bottom:12px;border-radius:6px;animation:slideIn 0.3s}
+.toast.error{border-left-color:#dc3545}
+@keyframes slideIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+.empty-state{text-align:center;padding:40px;color:#666}
+.complete-badge{display:inline-block;background:#28a745;color:white;padding:6px 12px;border-radius:16px;font-size:12px;font-weight:600;margin-left:10px}
+</style>
+{% endblock %}
+{% block content %}
+<div class="toast-container" id="toastContainer"></div>
+
+<div class="container-fluid">
+  <!-- Left Panel: Role Panels with Suggestions -->
+  <div class="left-panel">
+    <div class="job-header">
+      <h1>{{ job.title }}</h1>
+      <div style="font-size:16px;opacity:0.9">@ {{ job.company }}</div>
+    </div>
+
+    <div id="rolesContainer">
+      <!-- Roles will be rendered here -->
+    </div>
+
+    <div style="text-align:center;margin-top:30px">
+      <button id="continueBtn" class="btn-continue" disabled onclick="continueToApply()">
+        ✓ Approve All & Continue to Apply
+      </button>
+      <div id="gateStatus" style="margin-top:12px;font-size:14px;color:#856404"></div>
+    </div>
+  </div>
+
+  <!-- Right Panel: Live Resume Preview -->
+  <div class="right-panel">
+    <h2 style="margin-bottom:20px;color:#333">Live Resume Preview</h2>
+    <div id="resumePreview" class="resume-preview">
+      <!-- Resume will be rendered here -->
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const JOB_ID = '{{ job.id }}';
+const ROLES = {{ roles | tojson }};
+
+// Current suggestions being displayed (keyed by role_key)
+let currentSuggestions = {};
+
+// Toast notifications
+function showToast(msg, type='success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<strong>${type==='error'?'Error':'Success'}</strong><div style="margin-top:4px;font-size:14px">${msg}</div>`;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+
+// Get score badge class
+function getScoreBadgeClass(score) {
+  if (score >= 7) return 'score-high';
+  if (score >= 5) return 'score-med';
+  return 'score-low';
+}
+
+// Load next suggestion for a role
+async function loadNextSuggestion(roleKey) {
+  const suggestionContainer = document.getElementById(`suggestion-${roleKey}`);
+  const loading = document.getElementById(`loading-${roleKey}`);
+
+  loading.classList.add('active');
+
+  try {
+    const response = await fetch(`/review/${JOB_ID}/suggestions/seq/next`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({role_key: roleKey})
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      showToast(`Error: ${data.error}`, 'error');
+      return;
+    }
+
+    // Update progress
+    updateProgress(roleKey, data.remaining);
+
+    // Check if complete
+    if (data.remaining.is_complete) {
+      suggestionContainer.innerHTML = `
+        <div class="empty-state">
+          <div style="font-size:48px;margin-bottom:12px">✓</div>
+          <div style="font-size:16px;font-weight:600;color:#28a745">Role Complete!</div>
+          <div style="font-size:14px;margin-top:8px">${data.remaining.approved}/${data.remaining.quota} bullets approved</div>
+        </div>
+      `;
+      checkGateStatus();
+      return;
+    }
+
+    // Render suggestion
+    const sugg = data.suggestion;
+    if (!sugg) {
+      suggestionContainer.innerHTML = `
+        <div class="empty-state">
+          <div style="font-size:14px;color:#666">No more suggestions available</div>
+          <button class="btn-another" onclick="loadNextSuggestion('${roleKey}')" style="margin-top:12px">Try Again</button>
+        </div>
+      `;
+      return;
+    }
+
+    // Store current suggestion
+    currentSuggestions[roleKey] = sugg;
+
+    const scoreClass = getScoreBadgeClass(sugg.score);
+    const citations = sugg.citations || [];
+    const citationsHtml = citations.length > 0 ? `
+      <details class="citations-dropdown">
+        <summary>📚 ${citations.length} Source${citations.length>1?'s':''}</summary>
+        <div class="citations-list">
+          ${citations.map(c => `<div>• ${c}</div>`).join('')}
+        </div>
+      </details>
+    ` : '';
+
+    suggestionContainer.innerHTML = `
+      <div class="suggestion-card">
+        <div class="suggestion-text" id="text-${roleKey}">${sugg.text}</div>
+        <div class="suggestion-meta">
+          <span class="score-badge ${scoreClass}">${Math.round(sugg.score)}/10</span>
+          <span class="model-badge">${sugg.model}</span>
+        </div>
+        ${citationsHtml}
+        <div class="btn-grid">
+          <button class="btn-action btn-accept" onclick="acceptSuggestion('${roleKey}')">✓ Accept</button>
+          <button class="btn-action btn-reject" onclick="rejectSuggestion('${roleKey}')">✗ Reject</button>
+        </div>
+        <div class="loading-overlay" id="action-loading-${roleKey}">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    `;
+
+  } catch (error) {
+    showToast(`Network error: ${error.message}`, 'error');
+  } finally {
+    loading.classList.remove('active');
+  }
+}
+
+// Accept suggestion
+async function acceptSuggestion(roleKey) {
+  const sugg = currentSuggestions[roleKey];
+  if (!sugg) return;
+
+  const actionLoading = document.getElementById(`action-loading-${roleKey}`);
+  actionLoading.classList.add('active');
+
+  try {
+    const response = await fetch(`/review/${JOB_ID}/suggestions/seq/accept`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({role_key: roleKey, suggestion_id: sugg.id})
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      showToast(`Error: ${data.error}`, 'error');
+      return;
+    }
+
+    showToast('Bullet accepted!', 'success');
+
+    // Update entire preview with server-rendered HTML
+    if (data.preview_html) {
+      document.getElementById('resumePreview').innerHTML = data.preview_html;
+    } else {
+      // Fallback to client-side append
+      addBulletToPreview(roleKey, sugg.text);
+    }
+
+    // Update progress
+    updateProgress(roleKey, {
+      approved: data.accepted_count,
+      quota: data.quota,
+      is_complete: data.is_complete
+    });
+
+    // Load next if not complete
+    if (!data.is_complete) {
+      setTimeout(() => loadNextSuggestion(roleKey), 500);
+    } else {
+      const suggestionContainer = document.getElementById(`suggestion-${roleKey}`);
+      suggestionContainer.innerHTML = `
+        <div class="empty-state">
+          <div style="font-size:48px;margin-bottom:12px">✓</div>
+          <div style="font-size:16px;font-weight:600;color:#28a745">Role Complete!</div>
+        </div>
+      `;
+      checkGateStatus();
+    }
+
+  } catch (error) {
+    showToast(`Network error: ${error.message}`, 'error');
+  } finally {
+    actionLoading.classList.remove('active');
+  }
+}
+
+// Reject suggestion
+async function rejectSuggestion(roleKey) {
+  const sugg = currentSuggestions[roleKey];
+  if (!sugg) return;
+
+  const actionLoading = document.getElementById(`action-loading-${roleKey}`);
+  actionLoading.classList.add('active');
+
+  try {
+    const response = await fetch(`/review/${JOB_ID}/suggestions/seq/reject`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({role_key: roleKey, suggestion_id: sugg.id})
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+      showToast(`Error: ${data.error}`, 'error');
+      return;
+    }
+
+    showToast('Suggestion rejected', 'success');
+
+    // Load next immediately
+    loadNextSuggestion(roleKey);
+
+  } catch (error) {
+    showToast(`Network error: ${error.message}`, 'error');
+    actionLoading.classList.remove('active');
+  }
+}
+
+// Update progress bar
+function updateProgress(roleKey, remaining) {
+  const bar = document.getElementById(`progress-${roleKey}`);
+  if (!bar) return;
+
+  const percent = Math.round((remaining.approved / remaining.quota) * 100);
+  bar.style.width = `${percent}%`;
+  bar.textContent = `${remaining.approved}/${remaining.quota} bullets`;
+
+  // Update role panel styling
+  if (remaining.is_complete) {
+    document.getElementById(`role-${roleKey}`).classList.add('complete');
+  }
+}
+
+// Check gate status
+async function checkGateStatus() {
+  try {
+    const response = await fetch(`/review/${JOB_ID}/seq/progress`);
+    const data = await response.json();
+
+    const continueBtn = document.getElementById('continueBtn');
+    const gateStatus = document.getElementById('gateStatus');
+
+    if (data.all_complete) {
+      continueBtn.disabled = false;
+      gateStatus.innerHTML = '✅ All roles complete! You can continue.';
+      gateStatus.style.color = '#28a745';
+    } else {
+      continueBtn.disabled = true;
+      const incomplete = Object.entries(data.roles)
+        .filter(([k,v]) => !v.is_complete)
+        .map(([k,v]) => `${v.accepted_count}/${v.quota}`)
+        .join(', ');
+      gateStatus.innerHTML = `⏳ Complete all roles to continue (${incomplete})`;
+      gateStatus.style.color = '#856404';
+    }
+  } catch (error) {
+    console.error('Error checking status:', error);
+  }
+}
+
+// Add bullet to resume preview
+function addBulletToPreview(roleKey, bulletText) {
+  const bulletsContainer = document.getElementById(`bullets-${roleKey}`);
+  if (!bulletsContainer) return;
+
+  const bullet = document.createElement('div');
+  bullet.className = 'resume-bullet';
+  bullet.textContent = bulletText;
+  bulletsContainer.appendChild(bullet);
+}
+
+// Initialize roles
+function initRoles() {
+  const container = document.getElementById('rolesContainer');
+
+  ROLES.forEach(role => {
+    const roleDiv = document.createElement('div');
+    roleDiv.className = 'role-panel';
+    roleDiv.id = `role-${role.role_id}`;
+
+    roleDiv.innerHTML = `
+      <div class="role-header">
+        <div class="role-title">${role.title} @ ${role.company}</div>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-${role.role_id}" style="width:0%">
+          0/${role.required} bullets
+        </div>
+      </div>
+      <div id="suggestion-${role.role_id}" style="position:relative;min-height:150px">
+        <div class="loading-overlay active" id="loading-${role.role_id}">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(roleDiv);
+
+    // Load first suggestion
+    loadNextSuggestion(role.role_id);
+  });
+}
+
+// Initialize resume preview
+function initResumePreview() {
+  const preview = document.getElementById('resumePreview');
+
+  preview.innerHTML = `
+    <div class="resume-name">Nate Velasco</div>
+    <div class="resume-contact">contact@example.com | (555) 123-4567 | Location</div>
+
+    <div class="resume-section">
+      <div class="resume-section-title">Professional Experience</div>
+      ${ROLES.map(role => `
+        <div style="margin-bottom:20px">
+          <div class="resume-role-header">${role.title} | ${role.company}</div>
+          <div id="bullets-${role.role_id}">
+            <!-- Bullets will be added here -->
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="resume-section">
+      <div class="resume-section-title">Skills</div>
+      <div>Skills will be generated after bullet selection...</div>
+    </div>
+  `;
+}
+
+// Continue to apply page
+function continueToApply() {
+  window.location.href = `/apply/${JOB_ID}`;
+}
+
+// Initialize on load
+initRoles();
+initResumePreview();
+checkGateStatus();
+
+// Periodic status check
+setInterval(checkGateStatus, 10000);
+
+// Keyboard shortcuts: A=accept, R=reject, N=next/regenerate
+document.addEventListener('keydown', function(e) {
+  // Ignore if user is typing in an input field
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  const key = e.key.toLowerCase();
+
+  // Find first incomplete role to operate on
+  const incompleteRole = ROLES.find(r => {
+    const progressBar = document.getElementById(`progress-${r.role_id}`);
+    if (!progressBar) return false;
+    const currentText = progressBar.textContent.trim();
+    const match = currentText.match(/(\d+)\/(\d+)/);
+    if (!match) return false;
+    const [_, current, quota] = match;
+    return parseInt(current) < parseInt(quota);
+  });
+
+  if (!incompleteRole) return;
+
+  const roleKey = incompleteRole.role_id;
+
+  switch(key) {
+    case 'a':
+      e.preventDefault();
+      acceptSuggestion(roleKey);
+      break;
+    case 'r':
+      e.preventDefault();
+      rejectSuggestion(roleKey);
+      break;
+    case 'n':
+      e.preventDefault();
+      loadNextSuggestion(roleKey);
+      break;
+  }
+});
+</script>
+{% endblock %}

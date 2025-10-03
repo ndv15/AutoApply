@@ -1,0 +1,71 @@
+I’m assigning you to work as a coordinated team to finish my AutoApply system. Your roles are:
+•	Perplexity (CodeGPT) — Reviewer/Research Agent: You audit, diagnose, and produce a step-by-step plan (no code). You identify exact files, functions, and lines that must change. You justify each change against my acceptance criteria.
+•	Claude Code — Coder Agent: You plan first, wait for my approval, then implement surgical edits only. You follow the Reviewer/Research plan unless I direct otherwise. After coding, you give me test steps.
+•	Perplexity (CodeGPT) — Final Gate Reviewer: After implementation, you verify the work matches the approved plan, passes my acceptance criteria, and cite file:line in a PASS/FAIL table. No code changes—just verification.
+Order of operations
+1.	Reviewer/Research Agent → Plan only
+2.	I approve
+3.	Coder Agent → Implement + test notes
+4.	Final Gate Reviewer → Verify against plan + PASS/FAIL table
+5.	I approve final
+My acceptance criteria (must all pass):
+•	Sequential suggestions: One bullet at a time per role; Accept/Reject shows the next non-duplicate suggestion until quotas are met (CCS=4, Brightspeed II=4, Brightspeed I=4, VirsaTel=3).
+•	AMOT bullets: Every bullet follows Action + Metric + Outcome + Tool. If metrics are missing, inject realistic placeholders (ranges OK).
+•	Diversity & ranking: Generate 20–30 candidates per role, then Cohere ReRank → MMR diversity → keyword weighting → RRF fusion, return scored 1–10, no near-duplicates.
+•	Live resume preview & gating: The preview shows accepted bullets only; Generate stays disabled until all quotas are met; counters update live (“2/4”, etc.).
+•	Skills block format: Max 3–4 lines, Category: item | item | item (ATS-safe).
+•	Compliant apply flow: Auto-apply only for Greenhouse/Lever; all others = Assist mode.
+•	Secret safety: Never print full API keys; print masked prefixes/suffixes only; .env is never committed.
+Repository landmarks to use:
+•	app/api.py (review endpoints, status gate, file gen, apply flow)
+•	app/writing/experience.py (AMOT, over-gen, duplicate filter, ranks)
+•	app/ranking/mmr_rrf.py (MMR, RRF, keyword weighting)
+•	app/writing/skills_engine.py (JD → skills categories)
+•	templates/review_sequential.html (sequential UI bindings)
+•	logs/events.jsonl, out/state.json (telemetry/state)
+Do not proceed out of order. Reviewer/Research produces the plan; Coder implements only after I approve; Final Gate Reviewer verifies.
+
+
+1) Reviewer/Research Agent (Perplexity / CodeGPT) — Plan only
+Title: Reviewer/Research — Audit & Implementation Plan (No Code Changes)
+I want you to audit the project and produce a concrete, line-referenced plan I can hand to the Coder Agent. Do not write code. Your goals:
+Diagnose & Plan for these outcomes:
+1.	Sequential suggestions: One suggestion at a time, Accept/Reject → Next (no repeats) until quotas are met per role (CCS=4, Brightspeed II=4, Brightspeed I=4, VirsaTel=3).
+2.	AMOT enforcement: Validate bullets with a regex or equivalent; inject quantitative placeholders when metrics are missing.
+3.	Diversity & ranking: Over-generate 20–30 candidates per role → Cohere ReRank → MMR (λ≈0.6–0.7) → keyword weighting → RRF fusion → final 1–10 scores; block near-duplicates; maintain suggestion history per role/JD.
+4.	Live preview & gating: Preview shows only accepted bullets; per-role counters reflect progress; Generate stays disabled until quotas satisfied.
+5.	Skills block: Render as max 3–4 lines: Category: item | item | item.
+6.	Compliance: Auto-apply allow-list = Greenhouse/Lever; others go to Assist mode.
+7.	Secret masking: Ensure config never prints full API keys; mask outputs.
+What I expect from you (deliverables):
+•	A step-by-step diff plan listing: file → function → exact lines to edit/add, mapped to each requirement above.
+•	The root cause of repetitive suggestions and exactly where to add/confirm MMR, history/duplicate filters, and ranking order.
+•	Confirmation of where AMOT validation runs and where placeholder metrics are injected (before ranking).
+•	Confirmation that templates/review_sequential.html binds the buttons/keys to:
+o	POST /review/{job_id}/suggestion/next (one suggestion)
+o	POST /review/{job_id}/suggestion/approve
+o	POST /review/{job_id}/suggestion/reject
+o	GET /review/{job_id}/status (gating/counters)
+•	Any prompt upgrades for Claude/OpenAI/Gemini that consistently produce AMOT-compliant, quantified sales bullets.
+•	A mini test plan: exact steps to verify the UI loop, counters, preview, and file outputs.
+Focus files:
+•	app/api.py, app/writing/experience.py, app/ranking/mmr_rrf.py, app/writing/skills_engine.py, templates/review_sequential.html, logs/events.jsonl, out/state.json.
+Return only the plan and justifications with file:line references. Wait for my approval before anyone writes code.
+________________________________________
+
+________________________________________
+3) Final Gate Reviewer (Perplexity / CodeGPT) — Verify vs Plan
+Title: Final Gate — Verify Implementation Matches Plan & Criteria
+I want you to act as my Final Gate Reviewer. Do not write code. Compare the implemented changes to the approved plan, then verify my acceptance criteria. Produce a PASS/FAIL table with file:line references and precise remediation if anything fails.
+Verify these items:
+•	UI bindings in templates/review_sequential.html →
+POST /review/{job_id}/suggestion/next, /approve, /reject, and GET /review/{job_id}/status
+•	Sequential loop & quotas: one suggestion at a time; Accept/Reject → Next; Generate disabled until quotas met; counters update live.
+•	AMOT enforcement: validation applied; placeholders injected before ranking; bullets comply.
+•	Diversity & ranking: over-generation present; Cohere ReRank → MMR → keyword weighting → RRF executed in correct order; scores 1–10; history/dupe filter working.
+•	Live resume preview: accepted bullets only; updates in place.
+•	Skills block: ≤ 4 lines, Category: item | item | item.
+•	Compliance: auto-apply allow-list = Greenhouse/Lever; others = Assist.
+•	Secrets: config never prints full API keys; only masked output allowed.
+•	Telemetry: events for proposal/approval/rejection/role_complete/build/apply in logs/events.jsonl.
+Return a clear PASS/FAIL table per criterion with file:line citations and exact diffs needed if any item fails.

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoApply (Hybrid)</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #007bff;
+            border-radius: 8px 8px 0 0;
+        }
+        header h1 {
+            font-size: 24px;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+        .card {
+            background: white;
+            padding: 24px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 8px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 12px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-primary:hover:not(:disabled) { background: #0056b3; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover:not(:disabled) { background: #1e7e34; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover:not(:disabled) { background: #c82333; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-lg { padding: 14px 28px; font-size: 16px; }
+        .status-card {
+            border-left: 4px solid #28a745;
+            background: #d4edda;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 16px 0;
+        }
+        .status-card.warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        .status-card h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #155724;
+        }
+        .status-card.warning h3 {
+            color: #856404;
+        }
+        .status-card p {
+            margin: 8px 0;
+            font-size: 14px;
+        }
+        .actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 12px;
+        }
+        .debug-accordion {
+            margin-top: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .debug-header {
+            background: #f8f9fa;
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #666;
+            user-select: none;
+        }
+        .debug-header:hover {
+            background: #e9ecef;
+        }
+        .debug-content {
+            display: none;
+            padding: 12px;
+            background: #f8f9fa;
+            border-top: 1px solid #ddd;
+        }
+        .debug-content pre {
+            margin: 0;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .job-item {
+            border: 1px solid #e0e0e0;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .job-info h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .job-info p {
+            font-size: 13px;
+            color: #666;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 12px;
+            text-transform: uppercase;
+            margin-right: 8px;
+        }
+        .badge-warning { background: #ffc107; color: #000; }
+        .badge-info { background: #17a2b8; color: white; }
+        .badge-success { background: #28a745; color: white; }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 350px;
+        }
+        .toast {
+            background: white;
+            border-left: 4px solid #28a745;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            animation: slideIn 0.3s ease-out;
+        }
+        .toast.error { border-left-color: #dc3545; }
+        .toast.warning { border-left-color: #ffc107; }
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="toast-container" id="toastContainer"></div>
+    <div class="container">
+        <header>
+            <h1>AutoApply (Hybrid)</h1>
+            <div class="subtitle">Compliant job application automation for Enterprise Account Managers</div>
+        </header>
+
+        <div class="card">
+            <h2>Add Job (paste URL)</h2>
+            <input
+                id="jobUrl"
+                type="text"
+                placeholder="https://www.linkedin.com/jobs/view/..."
+                value="https://www.linkedin.com/jobs/view/4308170487"
+            >
+            <button class="btn btn-primary btn-lg" onclick="ingestJob()" id="addBtn">
+                Add Job
+            </button>
+            <div id="ingestResult"></div>
+        </div>
+
+        <div class="card">
+            <h2>Pending Jobs</h2>
+            <button class="btn btn-secondary" onclick="refreshPending()">Refresh</button>
+            <div id="pendingJobs"></div>
+        </div>
+    </div>
+
+    <script>
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + (type || '');
+            const icon = type === 'error' ? '✗' : type === 'warning' ? '⚠' : '✓';
+            toast.innerHTML = `<strong>${icon} ${type === 'error' ? 'Error' : type === 'warning' ? 'Warning' : 'Success'}</strong><div style="margin-top:4px;font-size:14px">${msg}</div>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+
+        async function ingestJob() {
+            const url = document.getElementById('jobUrl').value.trim();
+            const resultDiv = document.getElementById('ingestResult');
+            const addBtn = document.getElementById('addBtn');
+
+            if (!url) {
+                showToast('Please enter a job URL', 'warning');
+                return;
+            }
+
+            // Show loading state
+            addBtn.disabled = true;
+            addBtn.innerHTML = 'Adding Job<span class="spinner"></span>';
+            resultDiv.innerHTML = '';
+
+            try {
+                const response = await fetch('/ingest/paste', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                const data = await response.json();
+
+                // Log telemetry
+                await fetch('/telemetry/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event: 'job_added',
+                        job_id: data.job?.id,
+                        url: url
+                    })
+                }).catch(() => {});
+
+                // Clear input
+                document.getElementById('jobUrl').value = '';
+
+                // Show success card
+                if (data.status === 'needs_manual_entry') {
+                    resultDiv.innerHTML = `
+                        <div class="status-card warning">
+                            <h3>✓ Job Captured — Manual Details Required</h3>
+                            <p>LinkedIn jobs require manual entry to stay compliant.</p>
+                            <p><strong>Job ID:</strong> ${data.job.id}</p>
+                            <div class="actions">
+                                <button class="btn btn-success btn-lg" onclick="location.href='${data.redirect}'">
+                                    Continue to Manual Ingest →
+                                </button>
+                            </div>
+                            <div class="debug-accordion">
+                                <div class="debug-header" onclick="toggleDebug(this)">
+                                    🔍 Debug details ▾
+                                </div>
+                                <div class="debug-content">
+                                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Auto-redirect after 2 seconds
+                    showToast('Redirecting to manual entry form in 2 seconds...', 'warning');
+                    setTimeout(() => {
+                        window.location.href = data.redirect;
+                    }, 2000);
+
+                } else if (data.status === 'already_in_review') {
+                    resultDiv.innerHTML = `
+                        <div class="status-card warning">
+                            <h3>⚠ Job Already Exists</h3>
+                            <p>This job is already in your queue.</p>
+                            <div class="actions">
+                                <button class="btn btn-primary" onclick="location.href='${data.redirect}'">
+                                    Go to Review →
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    showToast('Job already in queue', 'warning');
+
+                } else {
+                    // Greenhouse/Lever auto-parsed job
+                    resultDiv.innerHTML = `
+                        <div class="status-card">
+                            <h3>✓ Job Queued Successfully</h3>
+                            <p><strong>${data.job.title}</strong> @ ${data.job.company}</p>
+                            <div class="actions">
+                                <button class="btn btn-success btn-lg" onclick="location.href='/review/${data.job.id}'">
+                                    Go to Review →
+                                </button>
+                            </div>
+                            <div class="debug-accordion">
+                                <div class="debug-header" onclick="toggleDebug(this)">
+                                    🔍 Debug details ▾
+                                </div>
+                                <div class="debug-content">
+                                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    showToast('Job added successfully!');
+                }
+
+                // Refresh pending jobs
+                refreshPending();
+
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="status-card warning">
+                        <h3>✗ Error</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                showToast('Failed to add job: ' + error.message, 'error');
+            } finally {
+                addBtn.disabled = false;
+                addBtn.innerHTML = 'Add Job';
+            }
+        }
+
+        async function refreshPending() {
+            const container = document.getElementById('pendingJobs');
+
+            try {
+                const response = await fetch('/jobs/pending');
+                const jobs = await response.json();
+
+                if (!jobs || jobs.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <p>📋 No pending jobs</p>
+                            <p style="font-size:13px;margin-top:8px">Add a job above to get started</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = jobs.map(job => {
+                    const needsManual = job.needs_review || !job.title;
+                    const statusBadge = needsManual
+                        ? '<span class="badge badge-warning">Needs Manual</span>'
+                        : job.title
+                            ? '<span class="badge badge-info">Ready to Review</span>'
+                            : '<span class="badge badge-warning">Incomplete</span>';
+
+                    const actionBtn = needsManual
+                        ? `<button class="btn btn-success" onclick="location.href='/ingest/manual/${job.id}'">Manual Ingest →</button>`
+                        : `<button class="btn btn-primary" onclick="location.href='/review/${job.id}'">Review →</button>`;
+
+                    return `
+                        <div class="job-item">
+                            <div class="job-info">
+                                <h3>${job.title || 'Untitled Job'} ${job.company ? '@ ' + job.company : ''}</h3>
+                                <p>${statusBadge} ${job.host || job.url || ''}</p>
+                            </div>
+                            <div style="display:flex;gap:8px">
+                                ${actionBtn}
+                                <button class="btn btn-danger" onclick="removeJob('${job.id}')">Remove</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p style="color:#dc3545">✗ Failed to load pending jobs</p>
+                        <p style="font-size:13px;margin-top:8px">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function removeJob(jobId) {
+            if (!confirm('Remove this job from the queue?')) return;
+
+            try {
+                await fetch('/queue/skip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ job_id: jobId })
+                });
+                showToast('Job removed');
+                refreshPending();
+            } catch (error) {
+                showToast('Failed to remove job', 'error');
+            }
+        }
+
+        function toggleDebug(header) {
+            const content = header.nextElementSibling;
+            if (content.style.display === 'block') {
+                content.style.display = 'none';
+                header.textContent = '🔍 Debug details ▾';
+            } else {
+                content.style.display = 'block';
+                header.textContent = '🔍 Debug details ▴';
+            }
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('jobUrl').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                ingestJob();
+            }
+        });
+
+        // Load pending jobs on page load
+        refreshPending();
+    </script>
+</body>
+</html>
