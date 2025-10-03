@@ -50,3 +50,4 @@ Thumbs.db
 # Ignore Windows reserved file\nnul\n
 \n# Local virtualenv\n.venv/
 nul
+\n# Local virtualenv\n.venv/
