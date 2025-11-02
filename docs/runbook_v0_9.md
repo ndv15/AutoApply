@@ -418,7 +418,10 @@ class CoverageMappingService:
     """Semantic similarity engine for job-profile matching."""
     
     def __init__(self):
-        self.client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # Initialize OpenAI client with credentials from environment
+        # Note: API credentials loaded from environment variables
+        openai_credential = os.getenv("OPENAI_API_KEY")
+        self.client = AsyncOpenAI(api_key=openai_credential)
         self.model = "text-embedding-3-small"
     
     async def compute_coverage_map(
