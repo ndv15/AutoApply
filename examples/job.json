@@ -1,0 +1,15 @@
+{
+  "title": "Software Engineer",
+  "company": "Acme Corp",
+  "responsibilities": [
+    "Develop and maintain data pipelines",
+    "Collaborate with cross‑functional teams",
+    "Improve system reliability and scalability"
+  ],
+  "requirements": [
+    "3+ years of Python experience",
+    "Familiarity with SQL and data warehousing",
+    "Experience with cloud services such as AWS"
+  ],
+  "keywords": ["Python", "SQL", "AWS", "data pipelines"]
+}

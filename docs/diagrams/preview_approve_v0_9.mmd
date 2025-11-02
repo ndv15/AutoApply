@@ -1,0 +1,65 @@
+%% AutoApply v0.9 - Preview & Approve Flow
+%% User workflow for reviewing and approving generated bullets
+
+stateDiagram-v2
+    [*] --> PipelineRunning: User submits JD + Profile
+    
+    PipelineRunning --> ResultsGenerated: Pipeline completes<br/>(JD Extract → Coverage → Generation → Verification)
+    
+    ResultsGenerated --> ReviewingProposed: Load proposed bullets<br/>(≥75% verified)
+    ResultsGenerated --> ReviewingSuggested: Load suggested edits<br/>(<75% verified)
+    
+    ReviewingProposed --> ViewProvenance: User clicks<br/>"View Evidence"
+    ViewProvenance --> ReviewingProposed: Close provenance card
+    
+    ReviewingProposed --> AcceptBullet: User clicks<br/>"Accept"
+    AcceptBullet --> Accepted: Bullet added<br/>to resume
+    
+    ReviewingProposed --> RejectBullet: User clicks<br/>"Reject"
+    RejectBullet --> Rejected: Bullet discarded
+    
+    ReviewingSuggested --> EditBullet: User clicks<br/>"Edit & Approve"
+    EditBullet --> ManualEdit: User modifies text
+    ManualEdit --> ManualApproved: User confirms
+    ManualApproved --> Accepted
+    
+    ReviewingSuggested --> RejectSuggested: User clicks<br/>"Reject"
+    RejectSuggested --> Rejected
+    
+    Accepted --> ResumePreviewing: Update live preview
+    ResumePreviewing --> ExportReady: All bullets reviewed
+    
+    ExportReady --> ExportPDF: User exports<br/>to PDF
+    ExportReady --> ExportDOCX: User exports<br/>to DOCX
+    ExportReady --> ExportHTML: User exports<br/>to HTML
+    
+    ExportPDF --> [*]: Download complete
+    ExportDOCX --> [*]: Download complete
+    ExportHTML --> [*]: Download complete
+    
+    Rejected --> CheckMoreBullets: Discard bullet
+    CheckMoreBullets --> ReviewingProposed: More to review
+    CheckMoreBullets --> ReviewingSuggested: More to review
+    CheckMoreBullets --> ResumePreviewing: All reviewed
+    
+    note right of ViewProvenance
+        Provenance Card Shows:
+        - Evidence sources (UUIDs)
+        - Similarity scores
+        - Job requirement matched
+        - AMOT component verification
+        - Full audit trail
+    end note
+    
+    note right of AcceptBullet
+        Proposed bullets are safe
+        to accept - already verified
+        ≥75% by the system
+    end note
+    
+    note right of EditBullet
+        Suggested edits need review
+        because <75% verified.
+        User can edit and approve
+        with full transparency.
+    end note

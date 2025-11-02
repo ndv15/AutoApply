@@ -1,0 +1,30 @@
+%% AutoApply v0.9 - Provenance Card Mockup
+%% Shows how a bullet links back to evidence with full audit trail
+
+graph LR
+    %% Bullet at the top
+    Bullet["Resume Bullet (Proposed)<br/><br/>'Drove 35% pipeline growth<br/>resulting in $1.8M ARR<br/>via MEDDICC'<br/><br/>✓ 100% Verified (4/4 components)"]
+    
+    %% Links to requirement
+    Bullet --> Req["Job Requirement<br/><br/>'5+ years enterprise sales<br/>with proven track record<br/>in SaaS'"]
+    
+    %% Links to evidence
+    Bullet --> Ev1["Evidence #1<br/>UUID: abc-123<br/>Similarity: 0.92<br/><br/>'Led enterprise sales team,<br/>closed $2.3M deals in 2023,<br/>used MEDDICC methodology'"]
+    
+    Bullet --> Ev2["Evidence #2<br/>UUID: def-456<br/>Similarity: 0.88<br/><br/>'Managed pipeline worth $5M,<br/>achieved 35% growth YoY'"]
+    
+    Bullet --> Ev3["Evidence #3<br/>UUID: ghi-789<br/>Similarity: 0.85<br/><br/>'Generated $1.8M ARR from<br/>new enterprise accounts'"]
+    
+    %% Verification details
+    Bullet --> Verify["Verification Breakdown<br/><br/>✓ Action: 'Drove' verified<br/>✓ Metric: '35%' exact match<br/>✓ Outcome: 'growth → ARR' verified<br/>✓ Tool: 'MEDDICC' exact match"]
+    
+    %% Styling
+    classDef bulletClass fill:#c8e6c9,stroke:#388e3c,stroke-width:3px,font-weight:bold
+    classDef reqClass fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef evidenceClass fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef verifyClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    
+    class Bullet bulletClass
+    class Req reqClass
+    class Ev1,Ev2,Ev3 evidenceClass
+    class Verify verifyClass

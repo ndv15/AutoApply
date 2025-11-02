@@ -1,0 +1,56 @@
+%% AutoApply v0.9 - Architecture Diagram
+%% End-to-End Pipeline from Job Description to Resume Output
+
+graph TB
+    %% Input Stage
+    JD[Job Description<br/>Raw Text]
+    Profile[Candidate Profile<br/>Experiences, Projects, Education]
+    
+    %% JD Processing
+    JD --> JDExtract[JD Extraction Service<br/>Claude/GPT-4<br/>Conservative Parsing]
+    JDExtract --> ExtractedJD[Extracted JD<br/>Must-Haves & Nice-to-Haves<br/>Confidence Scores]
+    
+    %% Coverage Analysis
+    Profile --> Evidence[Evidence Extraction<br/>From Profile]
+    Evidence --> EvidenceList[Evidence Items<br/>w/ UUIDs]
+    ExtractedJD --> Coverage[Coverage Mapping Service<br/>OpenAI Embeddings<br/>Cosine Similarity]
+    EvidenceList --> Coverage
+    
+    Coverage --> CoverageMap[Coverage Map<br/>Requirements → Evidence<br/>Similarity Scores 0.0-1.0]
+    
+    %% Bullet Generation
+    CoverageMap --> BulletGen[Enhanced Bullet Service<br/>Provenance-Backed Generation<br/>Claude 3.5 Sonnet]
+    Profile --> BulletGen
+    
+    BulletGen --> Generated[Generated Bullets<br/>w/ Evidence Links<br/>AMOT Format]
+    
+    %% Verification
+    Generated --> Verify[Verification Service<br/>Component-Level Checks<br/>GPT-4 Semantic Matching]
+    EvidenceList --> Verify
+    
+    Verify --> VerifyResult{Verification Rate}
+    
+    %% Categorization
+    VerifyResult -->|≥75% Verified| Proposed[Proposed Bullets<br/>Ready to Include<br/>Green Status]
+    VerifyResult -->|<75% Verified| Suggested[Suggested Edits<br/>Needs User Review<br/>Yellow Status]
+    
+    %% Output
+    Proposed --> Resume[Resume Preview<br/>HTML/Markdown<br/>Accepted Bullets Only]
+    Suggested --> Resume
+    
+    %% Provenance Trail
+    Proposed -.->|Traceable| EvidenceList
+    Suggested -.->|Traceable| EvidenceList
+    
+    %% Styling
+    classDef inputClass fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef processClass fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef dataClass fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef outputClass fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef warningClass fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    
+    class JD,Profile inputClass
+    class JDExtract,Coverage,BulletGen,Verify processClass
+    class ExtractedJD,EvidenceList,CoverageMap,Generated dataClass
+    class Proposed,Resume outputClass
+    class Suggested warningClass
