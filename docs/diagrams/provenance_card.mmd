@@ -1,0 +1,45 @@
+graph LR
+    subgraph Bullet["Resume Bullet"]
+        Text["Closed $2.4M in Q1<br/>leading to 140% attainment<br/>using Salesforce CPQ"]
+    end
+    
+    subgraph Provenance["Provenance Card"]
+        UUID[UUID: a7f3c892-...]
+        Source[Source JD:<br/>Enterprise AE @ Acme Corp]
+        Role[Past Role:<br/>Account Executive 2022-24]
+        Timestamp[Generated:<br/>2025-11-02 04:30:15 UTC]
+    end
+    
+    subgraph Validation["AMOT Verification"]
+        Action[Action: ✓ Closed]
+        Metric[Metric: ✓ $2.4M]
+        Outcome[Outcome: ✓ leading to]
+        Tool[Tool: ✓ using Salesforce]
+        Score[Verification: 100%]
+    end
+    
+    subgraph Similarity["Deduplication"]
+        Sim1[vs Bullet A: 0.23]
+        Sim2[vs Bullet B: 0.67]
+        Sim3[vs Bullet C: 0.41]
+        Status[Status: Unique ✓]
+    end
+    
+    Text --> UUID
+    UUID --> Source
+    Source --> Role
+    Role --> Timestamp
+    Timestamp --> Action
+    Action --> Metric
+    Metric --> Outcome
+    Outcome --> Tool
+    Tool --> Score
+    Score --> Sim1
+    Sim1 --> Sim2
+    Sim2 --> Sim3
+    Sim3 --> Status
+    
+    style Text fill:#e8f5e9,stroke:#4caf50,stroke-width:3px
+    style UUID fill:#f3e5f5
+    style Score fill:#fff3e0
+    style Status fill:#e3f2fd

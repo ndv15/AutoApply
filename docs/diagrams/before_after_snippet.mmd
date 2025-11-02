@@ -1,0 +1,66 @@
+graph TB
+    subgraph Before["❌ Before AutoApply"]
+        B1["Responsible for sales activities<br/>across multiple accounts"]
+        B2["Worked with customers to<br/>understand their needs"]
+        B3["Participated in team meetings<br/>and provided updates"]
+        B4["Helped achieve team goals"]
+    end
+    
+    subgraph Issues["Problems"]
+        I1[No Action Verb]
+        I2[No Metrics]
+        I3[No Outcome]
+        I4[No Tool/Method]
+        I5[Vague Language]
+    end
+    
+    subgraph After["✅ After AutoApply - AMOT Validated"]
+        A1["<b>Closed</b> <u>$2.4M</u> in Q1<br/><i>leading to</i> 140% attainment<br/><b>using</b> Salesforce CPQ"]
+        A2["<b>Drove</b> <u>35%</u> pipeline growth<br/><i>resulting in</i> $1.8M ARR<br/><b>via</b> MEDDICC methodology"]
+        A3["<b>Increased</b> win rate by <u>[X%]</u><br/><i>achieving</i> [$Y] revenue<br/><b>through</b> SPIN discovery"]
+        A4["<b>Led</b> cross-functional initiative<br/><i>driving</i> <u>23%</u> efficiency gain<br/><b>leveraging</b> Agile framework"]
+    end
+    
+    subgraph Components["AMOT Components"]
+        C1[✓ Action: Strong Verb]
+        C2[✓ Metric: 35%, $2.4M, etc]
+        C3[✓ Outcome: leading to, resulting in]
+        C4[✓ Tool: Salesforce, MEDDICC]
+    end
+    
+    B1 --> I1
+    B2 --> I2
+    B3 --> I3
+    B4 --> I4
+    B1 --> I5
+    B2 --> I5
+    B3 --> I5
+    B4 --> I5
+    
+    I1 -. Transform .-> A1
+    I2 -. Transform .-> A2
+    I3 -. Transform .-> A3
+    I4 -. Transform .-> A4
+    
+    A1 --> C1
+    A2 --> C2
+    A3 --> C3
+    A4 --> C4
+    
+    style B1 fill:#ffebee,stroke:#f44336
+    style B2 fill:#ffebee,stroke:#f44336
+    style B3 fill:#ffebee,stroke:#f44336
+    style B4 fill:#ffebee,stroke:#f44336
+    style A1 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style A2 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style A3 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style A4 fill:#e8f5e9,stroke:#4caf50,stroke-width:2px
+    style I1 fill:#fff3e0
+    style I2 fill:#fff3e0
+    style I3 fill:#fff3e0
+    style I4 fill:#fff3e0
+    style I5 fill:#fff3e0
+    style C1 fill:#e3f2fd
+    style C2 fill:#e3f2fd
+    style C3 fill:#e3f2fd
+    style C4 fill:#e3f2fd
