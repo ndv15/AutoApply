@@ -1,3 +1,8 @@
+"""Test suite for AMOT and Skills validators.
+
+This module tests the validation logic for Action-Metric-Outcome-Tool (AMOT)
+bullets and skills line formatting to ensure compliance with resume standards.
+"""
 import pytest
 from autoapply.domain.validators.amot import parse_amot
 from autoapply.domain.validators.skills import validate_skills_line
