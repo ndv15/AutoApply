@@ -1,0 +1,70 @@
+name: Codacy Coverage Reporter
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'autoapply/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'autoapply/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+
+jobs:
+  codacy-coverage:
+    name: Code Coverage Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install -e ".[dev]"
+      
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=autoapply --cov-report=xml:coverage.xml --cov-report=term -v
+      
+      - name: Upload coverage to Codacy
+        env:
+          CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
+        run: |
+          if [ -z "$CODACY_PROJECT_TOKEN" ]; then
+            echo "::warning::CODACY_PROJECT_TOKEN secret not set. Skipping coverage upload."
+            echo "To enable coverage reporting, add CODACY_PROJECT_TOKEN to repository secrets."
+            exit 0
+          fi
+          
+          if [ ! -f coverage.xml ]; then
+            echo "::error::coverage.xml not found. Tests may have failed."
+            exit 1
+          fi
+          
+          echo "Uploading coverage report to Codacy..."
+          bash <(curl -Ls https://coverage.codacy.com/get.sh) report -r coverage.xml
+      
+      - name: Archive coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 30
