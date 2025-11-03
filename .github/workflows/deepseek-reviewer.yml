@@ -1,0 +1,243 @@
+name: DeepSeek Technical Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/**'
+      - '**.md'
+      - '**.py'
+      - '**.yml'
+      - '**.yaml'
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  deepseek-technical-review:
+    runs-on: ubuntu-latest
+    name: DeepSeek AI Technical Review
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v41
+        with:
+          files: |
+            docs/**
+            .github/workflows/**
+            **.md
+            **.py
+            **.yml
+            **.yaml
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install requests openai
+      
+      - name: DeepSeek Technical Review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEEPSEEK_TOKEN: ${{ secrets.DEEPSEEK_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO_NAME: ${{ github.repository }}
+        run: |
+          python - <<'PYTHON_SCRIPT'
+          import os
+          import sys
+          import requests
+          import json
+          from openai import OpenAI
+
+          # Configuration
+          GITHUB_TOKEN = os.environ['GITHUB_TOKEN']
+          DEEPSEEK_TOKEN = os.environ['DEEPSEEK_TOKEN']
+          PR_NUMBER = os.environ['PR_NUMBER']
+          REPO_NAME = os.environ['REPO_NAME']
+          
+          # GitHub Models API endpoint (uses DeepSeek)
+          client = OpenAI(
+              base_url="https://models.azureai.com",
+              api_key=DEEPSEEK_TOKEN,
+          )
+          
+          REVIEW_PROMPT = """You are a senior technical reviewer performing an exhaustive code and documentation review for a Resume Builder application (AutoApply v0.9).
+
+          Your role: Technical Reviewer - Engineering rigor, architecture, AMOT alignment, maintainability
+
+          Review Protocol:
+          1. Review EVERY line of the provided file
+          2. For EVERY issue, suggestion, or confirmation, provide:
+             - Category: [CRITICAL/MAJOR/MINOR/SUGGESTION/CONFIRMATION]
+             - Issue: Clear description
+             - Impact: What could go wrong
+             - Recommendation: Specific fix
+             - Line Number: Exact location
+          
+          Focus areas:
+          - Code technical soundness and best practices
+          - AMOT format validation (Action-Metric-Outcome-Tool)
+          - Architecture and design patterns
+          - Maintainability and scalability
+          - Type safety and error handling
+          - CI/CD workflow configuration
+          - Performance considerations
+          - Edge case handling
+          
+          Quality Standards:
+          - Be specific with line numbers
+          - Provide actionable recommendations
+          - Cite standards or best practices
+          - No generic or vague feedback
+          - Confirm correct patterns explicitly
+          
+          File to review:
+          {file_content}
+          
+          Provide your review in the following JSON format:
+          {{
+            "file_name": "filename",
+            "total_lines": X,
+            "issues": [
+              {{
+                "line": X,
+                "category": "CRITICAL|MAJOR|MINOR|SUGGESTION|CONFIRMATION",
+                "issue": "description",
+                "impact": "what could go wrong",
+                "recommendation": "specific fix",
+                "reference": "standard or best practice"
+              }}
+            ],
+            "summary": {{
+              "critical": X,
+              "major": X,
+              "minor": X,
+              "suggestions": X,
+              "confirmations": X
+            }},
+            "overall_assessment": "brief overall assessment"
+          }}"""
+
+          def get_file_content(file_path):
+              """Fetch file content from PR."""
+              url = f"https://api.github.com/repos/{REPO_NAME}/contents/{file_path}?ref=refs/pull/{PR_NUMBER}/head"
+              headers = {
+                  "Authorization": f"token {GITHUB_TOKEN}",
+                  "Accept": "application/vnd.github.v3.raw"
+              }
+              response = requests.get(url, headers=headers)
+              if response.status_code == 200:
+                  return response.text
+              return None
+
+          def review_file_with_deepseek(file_path, content):
+              """Send file to DeepSeek for review."""
+              try:
+                  prompt = REVIEW_PROMPT.format(file_content=f"File: {file_path}\n\n{content[:10000]}")
+                  
+                  response = client.chat.completions.create(
+                      model="deepseek-r1",
+                      messages=[
+                          {"role": "system", "content": "You are an expert technical code reviewer."},
+                          {"role": "user", "content": prompt}
+                      ],
+                      temperature=0.3,
+                      max_tokens=4000
+                  )
+                  
+                  review_text = response.choices[0].message.content
+                  
+                  # Try to parse JSON response
+                  try:
+                      # Extract JSON from markdown code blocks if present
+                      if "```json" in review_text:
+                          json_start = review_text.find("```json") + 7
+                          json_end = review_text.find("```", json_start)
+                          review_text = review_text[json_start:json_end].strip()
+                      elif "```" in review_text:
+                          json_start = review_text.find("```") + 3
+                          json_end = review_text.find("```", json_start)
+                          review_text = review_text[json_start:json_end].strip()
+                      
+                      review_data = json.loads(review_text)
+                      return review_data
+                  except json.JSONDecodeError:
+                      # If JSON parsing fails, return raw text
+                      return {
+                          "file_name": file_path,
+                          "raw_review": review_text,
+                          "summary": {"note": "Review provided in raw format"}
+                      }
+                      
+              except Exception as e:
+                  print(f"Error reviewing {file_path}: {str(e)}")
+                  return None
+
+          def post_review_comment(review_data):
+              """Post review as PR comment."""
+              url = f"https://api.github.com/repos/{REPO_NAME}/issues/{PR_NUMBER}/comments"
+              headers = {
+                  "Authorization": f"token {GITHUB_TOKEN}",
+                  "Accept": "application/vnd.github.v3+json"
+              }
+              
+              # Format review as markdown
+              comment_body = f"""## 🤖 DeepSeek Technical Review - {review_data.get('file_name', 'File')}
+
+          ### Summary
+          """
+              
+              if 'summary' in review_data:
+                  summary = review_data['summary']
+                  comment_body += f"""
+          - **CRITICAL Issues:** {summary.get('critical', 0)}
+          - **MAJOR Issues:** {summary.get('major', 0)}
+          - **MINOR Issues:** {summary.get('minor', 0)}
+          - **Suggestions:** {summary.get('suggestions', 0)}
+          - **Confirmations:** {summary.get('confirmations', 0)}
+          """
+              
+              if 'issues' in review_data:
+                  comment_body += "\n### Detailed Findings\n\n"
+                  for issue in review_data['issues'][:10]:  # Limit to first 10 issues
+                      comment_body += f"""
+          **Line {issue.get('line', 'N/A')}** - `{issue.get('category', 'ISSUE')}`\n
+          - **Issue:** {issue.get('issue', 'N/A')}
+          - **Impact:** {issue.get('impact', 'N/A')}
+          - **Recommendation:** {issue.get('recommendation', 'N/A')}
+          - **Reference:** {issue.get('reference', 'Best practice')}
+          
+          ---
+          """
+              
+              if 'raw_review' in review_data:
+                  comment_body += f"\n### Review\n\n{review_data['raw_review'][:2000]}\n"
+              
+              if 'overall_assessment' in review_data:
+                  comment_body += f"\n### Overall Assessment\n\n{review_data['overall_assessment']}\n"
+              
+              comment_body += "\n---\n*Automated review by DeepSeek AI via GitHub Models*"
+              
+              payload = {"body": comment_body}
+              response = requests.post(url, headers=headers, json=payload)
+              return response.status_code == 201
+
+          # Get list of changed files from environment
+          changed_files = os.environ.get('CHANGED_FILES', '').split()
+          
+          if not changed_files:
+              # Try to get from PR API
+              url = f"https://api.github

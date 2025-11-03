@@ -1,0 +1,49 @@
+graph TB
+    subgraph Input
+        JD[Job Description<br/>URL or Text]
+        Profile[User Profile<br/>Employment History]
+    end
+    
+    subgraph Analysis
+        JDParser[JD Extraction<br/>Skills & Keywords]
+        Coverage[Coverage Mapping<br/>Skill Alignment]
+    end
+    
+    subgraph Generation
+        LLM[LLM Provider<br/>OpenAI/Claude/Gemini]
+        AMOT[AMOT Validator<br/>Regex Check]
+        Dedupe[MMR/RRF Deduplication<br/>0.75 Threshold]
+    end
+    
+    subgraph Review
+        Queue[Suggestion Queue<br/>Per-Role Quota]
+        Preview[Live Preview<br/>Accepted Only]
+        Store[Memory Store<br/>SQLite DB]
+    end
+    
+    subgraph Export
+        PDF[PDF Export<br/>ReportLab]
+        DOCX[DOCX Export<br/>python-docx]
+        HTML[HTML Export<br/>Template]
+    end
+    
+    JD --> JDParser
+    Profile --> Coverage
+    JDParser --> Coverage
+    Coverage --> LLM
+    LLM --> AMOT
+    AMOT -->|Valid| Dedupe
+    AMOT -->|Invalid| LLM
+    Dedupe --> Queue
+    Queue -->|Accept| Store
+    Queue -->|Reject| Dedupe
+    Store --> Preview
+    Preview --> PDF
+    Preview --> DOCX
+    Preview --> HTML
+    
+    style JD fill:#e3f2fd
+    style Profile fill:#e3f2fd
+    style AMOT fill:#fff3e0
+    style Preview fill:#e8f5e9
+    style Store fill:#f3e5f5

@@ -1,0 +1,50 @@
+sequenceDiagram
+    actor User
+    participant UI as Web Interface
+    participant Gen as Bullet Generator
+    participant Val as AMOT Validator
+    participant Queue as Suggestion Queue
+    participant Preview as Live Preview
+    participant Store as Memory Store
+    
+    User->>UI: Import Job Description
+    UI->>Gen: Analyze JD + Profile
+    Gen->>Val: Generate 5 bullets
+    Val->>Val: Validate AMOT format
+    Val->>Queue: Queue 4 valid bullets
+    Note over Val,Queue: 1 bullet failed validation
+    
+    Queue->>UI: Display suggestions
+    UI->>User: Show bullets (4 of 5 valid)
+    
+    User->>UI: Accept Bullet 1
+    UI->>Store: Save accepted bullet
+    Store->>Preview: Update preview
+    Preview->>UI: Render updated resume
+    UI->>User: Show live preview
+    
+    User->>UI: Reject Bullet 2
+    UI->>Queue: Remove from queue
+    Note over Queue: Deleted immediately
+    
+    User->>UI: Edit Bullet 3
+    UI->>Val: Re-validate edited text
+    Val->>UI: Validation passed
+    User->>UI: Accept edited bullet
+    UI->>Store: Save edited bullet
+    Store->>Preview: Update preview
+    
+    User->>UI: Request regeneration
+    UI->>Gen: Generate 3 more bullets
+    Gen->>Val: Validate new bullets
+    Val->>Queue: Queue 2 valid bullets
+    
+    User->>UI: Accept Bullet 4
+    UI->>Store: Save accepted bullet
+    Store->>Preview: Final update
+    
+    User->>UI: Export resume
+    UI->>Preview: Render to PDF/DOCX
+    Preview->>User: Download file
+    
+    Note over User,Store: Only accepted bullets<br/>appear in exports

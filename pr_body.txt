@@ -1,0 +1,57 @@
+## Deliverables
+
+### Product Explainer v1.0
+- **File:** `docs/product_explainer_v1.md`
+- **Exports:** `docs/product_explainer_v1.docx` (PDF pending LaTeX installation)
+- **Sections:** Problem, Audience, Journeys, Features, Trust/Privacy, ATS-ready, Pricing, Case Studies, FAQ, Roadmap, Glossary
+
+### Mermaid Diagrams
+Created source files in `docs/diagrams/`:
+- architecture_overview.mmd
+- provenance_card.mmd  
+- preview_approve_storyboard.mmd
+- before_after_snippet.mmd
+
+**Note:** SVG/PNG rendering requires Node.js (see docs/DIAGRAMS_README.md)
+
+### CI Guards Workflow
+**File:** `.github/workflows/docs-guard.yml`
+
+**4 Automated Gates:**
+1. **Path Guard:** Blocks changes outside docs/, .github/workflows/, tests/fixtures/
+2. **Secret Scan:** Prevents API keys, tokens, passwords, PII in documentation
+3. **Output Verification:** Validates AMOT and metrics present
+4. **Performance Gate:** Ensures Pandoc export completes within 60s
+
+### Supporting Documentation
+- `docs/DIAGRAMS_README.md` - Diagram rendering instructions
+- `docs/EXPORT_NOTES.md` - Export status and PDF engine options
+
+## CI Guard Summary
+
+**Allowed Paths:**
+- docs/**
+- .github/workflows/**  
+- tests/fixtures/**
+
+**Security Checks:**
+- No API keys or access tokens
+- No hardcoded passwords
+- Warnings for real email addresses
+
+**Quality Gates:**
+- AMOT terminology present
+- Metrics terminology present
+- Export performance under 60s budget
+
+## Commit Hash
+1c0e8a7
+
+## Verification
+
+- [x] DOCX opens with clickable TOC and numbered sections
+- [x] No secrets or environment values in documentation
+- [x] Glossary terms match usage throughout document
+- [x] All CI workflow gates configured
+- [ ] PDF export (pending LaTeX/wkhtmltopdf installation)
+- [ ] Diagram images (pending Node.js installation)
